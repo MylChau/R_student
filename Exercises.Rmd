@@ -1,0 +1,546 @@
+---
+title: "Final_Exam"
+output: html_document
+---
+
+#Forecasting Interest Rate Hikes by the U.S. Federal Reserve
+
+The federal funds rate is the key interest rate that the U.S. Federal Reserve uses to influence economic growth. The Federal Open Market Committee meets regularly to decide whether to increase, decrease, or maintain the target interest rate. Their choice has important ramifications that cascade through the economy, so the announcement of the interest rates is eagerly awaited each month.
+
+In this problem, we will use analytics to try to predict when the Federal Reserve will raise interest rates. We will look at monthly economic and political data dating back to the mid-1960's. In this analysis, the dependent variable will be the binary outcome variable RaisedFedFunds, which takes value 1 if the federal funds rate was increased that month and 0 if it was lowered or stayed the same. For each month, the file federalFundsRate.csv contains the following independent variables:
+
+    Date: The date the change was announced.
+    Chairman: The name of the Federal Reserve Chairman at the time the change was announced.
+    PreviousRate: The federal funds rate in the prior month.
+    Streak: The current streak of raising or not raising the rate, e.g. +8 indicates the rate has been increased 8 months in a row, whereas -3 indicates the rate has been lowered or stayed the same for 3 months in a row.
+    GDP: The U.S. Gross Domestic Product, in Billions of Chained 2009 US Dollars.
+    Unemployment: The unemployment rate in the U.S.
+    CPI: The Consumer Price Index, an indicator of inflation, in the U.S.
+    HomeownershipRate: The rate of homeownership in the U.S.
+    DebtAsPctGDP: The U.S. national debt as a percentage of GDP
+    DemocraticPres: Whether the sitting U.S. President is a Democrat (DemocraticPres=1) or a Republican (DemocraticPres=0)
+    MonthsUntilElection: The number of remaining months until the next U.S. presidential election.
+
+federalFundsRate
+
+###Problem 1 - Loading the Data
+(1 point possible)
+
+Use the read.csv function to load the contents of federalFundsRate.csv into a data frame called fedFunds, using stringsAsFactors=FALSE. What proportion of months did the Fed raise the interest rate?
+
+FALSE  TRUE 
+  290   295 
+
+```{r}
+setwd("~/MOOC/MIT The Analytics Edge")
+fedFunds<-read.csv('federalFundsRate.csv',stringsAsFactors=FALSE)
+table(fedFunds$Streak>=0)
+(295)/(290+295)#0.5043
+
+```
+###Problem 2 - The Longest-Serving Fed Chair
+(1 point possible)
+
+Which Federal Reserve Chair has presided over the most interest rate decisions?
+
+```{r}
+table(fedFunds$Chairman)#Alan Greenspan 
+```
+
+###Problem 3 - Converting Variables to Factors
+(1 point possible)
+
+Convert the following variables to factors using the as.factor function:
+
+- Chairman
+
+- DemocraticPres
+
+- RaisedFedFunds
+
+Which of the following methods requires the dependent variable be stored as a factor variable when training a model for classification?   Random forest (randomForest) 
+
+```{r}
+fedFunds$Chairman<-as.factor(fedFunds$Chairman)
+fedFunds$DemocraticPres<-as.factor(fedFunds$DemocraticPres)
+fedFunds$RaisedFedFunds<-as.factor(fedFunds$RaisedFedFunds)
+
+```
+
+###Problem 4 - Splitting into a Training and Testing Set
+(1 point possible)
+
+Obtain a random training/testing set split with:
+
+set.seed(201)
+
+library(caTools)
+
+spl = sample.split(fedFunds$RaisedFedFunds, 0.7)
+
+Split months into a training data frame called "training" using the observations for which spl is TRUE and a testing data frame called "testing" using the observations for which spl is FALSE.
+
+Why do we use the sample.split() function to split into a training and testing set? 
+
+It balances the dependent variable between the training and testing sets 
+
+```{r}
+set.seed(201)
+library(caTools)
+spl<-sample.split(fedFunds$RaisedFedFunds, 0.7)
+training<-subset(fedFunds,spl==TRUE)
+testing<-subset(fedFunds,spl==FALSE)
+```
+
+###Problem 5 - Training a Logistic Regression Model
+(1 point possible)
+
+Train a logistic regression model using independent variables "PreviousRate", "Streak", "Unemployment", "HomeownershipRate", "DemocraticPres", and "MonthsUntilElection", using the training set to obtain the model.
+
+Which of the following characteristics are statistically significant (p < 0.05, aka at least a * in the regression summary) associated with an increased chance of the federal funds rate being raised?
+
+```{r}
+log<-glm(RaisedFedFunds~PreviousRate+Streak+Unemployment+HomeownershipRate+DemocraticPres+MonthsUntilElection,data=training,family="binomial")
+summary(log)
+```
+
+###Problem 6 - Predicting Using a Logistic Regression Model
+(1 point possible)
+
+Imagine you are an analyst at a bank and your manager has asked you to predict whether the federal funds rate will be raised next month. You know that the rate has been lowered for 3 straight months (Streak = -3) and that the previous month's rate was 1.7%. The unemployment rate is 5.1% and the homeownership rate is 65.3%. The current U.S. president is a Republican and the next election will be held in 18 months. According to the logistic regression model you built in Problem 5, what is the predicted probability that the interest rate will be raised? 
+
+Coefficients:
+                     Estimate Std. Error z value Pr(>|z|)    
+(Intercept)          9.121012   5.155774   1.769   0.0769 .  
+PreviousRate        -0.003427   0.032350  -0.106   0.9156    
+Streak               0.157658   0.025147   6.270 3.62e-10 ***
+Unemployment        -0.047449   0.065438  -0.725   0.4684    
+HomeownershipRate   -0.136451   0.076872  -1.775   0.0759 .  
+DemocraticPres       0.347829   0.233200   1.492   0.1358    
+MonthsUntilElection -0.006931   0.007678  -0.903   0.3666   
+
+```{r}
+pred<-9.121012-0.003427*1.7+0.157658*-3-0.047449*5.1-0.136451*65.3+0.347829*0-0.006931*18#-0.6347861
+
+```
+
+The observation has PreviousRate=1.7, Streak=-3, Unemployment=5.1, DemocraticPres=0, MonthsUntilElection=18. Therefore, the prediction has logistic function value 9.121012 + 1.7*(-0.003427) - 3* 0.157658 + 5.1*(-0.047449) + 65.3*(-0.136451) + 0*0.347829 + 18*(-0.006931) = -0.6347861. Then you need to plug this into the logistic response function to get the predicted probability.
+
+### Problem 7 - Interpreting Model Coefficients
+(1 point possible)
+
+What is the meaning of the coefficient labeled "DemocraticPres1" in the logistic regression summary output?
+
+When the president is Democratic, the odds of the federal funds rate increasing are 41.6% higher than in an otherise identical month (i.e. identical among the variables in the model). 
+
+The coefficients of the model are the log odds associated with that variable; so we see that the odds of being sold are exp(0.347829)=1.41599 those of an otherwise identical month. This means the month is predicted to have 41.6% higher odds of being sold.
+
+### Problem 8 - Obtaining Test Set Predictions
+(2 points possibles)
+
+Using your logistic regression model, obtain predictions on the test set. Then, using a probability threshold of 0.5, create a confusion matrix for the test set. On how many test set observations does your logistic regression model make a different prediction than the prediction the naive baseline model would make? (Remember that the naive baseline model we use in this class always predicts the most frequent outcome in the training set for all observations in the test set.)
+
+    FALSE TRUE
+  0    60   27
+  1    31   57
+
+```{r}
+predlog<-predict(log,newdata=testing,type="response")
+table(testing$RaisedFedFunds>0.5)#Naive model
+table(testing$RaisedFedFunds,predlog>0.5)
+```
+
+Obtain test-set predictions with the predict function, remembering to pass type="response". Using table, you can see that there are 91 test-set predictions with probability less than 0.5.
+
+###Problem 9 - Computing Test-Set AUC
+(2 points possibles)
+
+What is the test-set AUC of the logistic regression model?
+
+```{r}
+library(ROCR)
+ROCRpred<-prediction(predlog,testing$RaisedFedFunds)
+#ROCRperf<-performance(ROCRpred,"tpr","fpr")
+auc<-as.numeric(performance(ROCRpred,"auc")@y.values)
+auc
+
+```
+
+###What is the meaning of the AUC? 
+
+The proportion of the time the model can differentiate between a randomly selected month during which the federal funds were raised and a randomly selected month during which the federal funds were not raised 
+
+
+
+###Problem 11 - ROC Curves
+(1/1 point)
+
+Which logistic regression threshold is associated with the upper-right corner of the ROC plot (true positive rate 1 and false positive rate 1)?     0
+
+A model with threshold 0 predicts 1 for all observations, yielding a 100% true positive rate and a 100% false positive rate.
+
+
+###Problem 12 - ROC Curves
+(1 point possible)
+
+Plot the colorized ROC curve for the logistic regression model's performance on the test set.
+
+At roughly which logistic regression cutoff does the model achieve a true positive rate of 85% and a false positive rate of 60%?
+
+```{r}
+ROCRperf<-performance(ROCRpred,"tpr","fpr")
+plot(ROCRperf,colorize=TRUE)#0.37
+```
+
+
+### Problem 13 - Cross-Validation to Select Parameters
+(1 point possible)
+
+Which of the following best describes how 10-fold cross-validation works when selecting between 2 different parameter values?
+
+20 models are trained on subsets of the training set and evaluated on a portion of the training set 
+
+In 10-fold cross validation, the model with each parameter setting will be trained on 10 90% subsets of the training set. Hence, a total of 20 models will be trained. The models are evaluated in each case on the last 10% of the training set (not on the testing set).
+
+###Problem 14 - Cross-Validation for a CART Model
+(1 point possible)
+
+Set the random seed to 201 (even though you have already done so earlier in the problem). Then use the caret package and the train function to perform 10-fold cross validation with the training data set to select the best cp value for a CART model that predicts the dependent variable "RaisedFedFunds" using the independent variables "PreviousRate," "Streak," "Unemployment," "HomeownershipRate," "DemocraticPres," and "MonthsUntilElection." Select the cp value from a grid consisting of the 50 values 0.001, 0.002, ..., 0.05.
+
+What cp value maximizes the cross-validation accuracy?
+
+```{r}
+set.seed(201)
+library(caret)
+library(e1071)
+numfolds<-trainControl(method="cv",number=10)
+cpGrid<-expand.grid(.cp=seq(0.001,0.05,0.001))
+crossval<-train(RaisedFedFunds ~ PreviousRate + Streak + Unemployment + HomeownershipRate + DemocraticPres +MonthsUntilElection,data=training,method="rpart",trControl=numfolds,tuneGrid=cpGrid)#0.016
+
+```
+
+
+###Problem 15 - Train CART Model
+(1 point possible)
+
+Build and plot the CART model trained with the parameter identified in Problem 14, again predicting the dependent variable using "PreviousRate", "Streak", "Unemployment", "HomeownershipRate", "DemocraticPres", and "MonthsUntilElection". What variable is used as the first (upper-most) split in the tree?
+
+```{r}
+library(rpart)
+library(rpart.plot)
+CART<-rpart(RaisedFedFunds~PreviousRate+Streak+Unemployment+HomeownershipRate+DemocraticPres+MonthsUntilElection,data=training,method="class",cp=0.016)
+prp(CART)
+```
+
+### Problem 16 - Predicting Using a CART Model
+(1 point possible)
+
+If you were to use the CART model you created in Problem 15 to answer the question asked of the analyst in Problem 6, what would you predict for next month?
+
+Remember: The rate has been lowered for 3 straight months (Streak = -3). The previous month's rate was 1.7%. The unemployment rate is 5.1%. The homeownership rate is 65.3%. The current U.S. president is a Republican and the next election will be held in 18 months.
+
+Once the tree is plotted using the prp function, you can follow the splits to find that, because Streak is less than 2.5 and Streak is less than -1.5, the model predicts RaisedFedFunds=0. 
+
+###Problem 17 - Test-Set Accuracy for CART Model
+(2 points possibles)
+
+Using the CART model you created in Problem 15, obtain predictions on the test set (using the parameter type="class" with the predict function). Then, create a confusion matrix for the test set.
+
+What is the accuracy of your CART model?
+
+   predCART
+     0  1
+  0 64 23
+  1 40 48
+
+```{r}
+predCART<-predict(CART,newdata=testing,type="class")
+table(testing$RaisedFedFunds,predCART)
+(64+48)/(64+40+23+48)#0.64
+
+```
+
+#####--------------------------------------------------------------------------------------------
+
+#
+Understanding Retail Consumers
+
+In Unit 6, we saw how clustering can be used for market segmentation, the idea of dividing airline passengers into small, more similar groups, and then designing a marketing strategy specifically for each group.  In this problem, we'll see how this idea can be applied to retail consumer data.
+
+In this problem, we'll use the dataset Households.csv, which contains data collected over two years for a group of 2,500 households.  Each row (observation) in our dataset represents a unique household.  The dataset contains the following variables:
+
+    NumVisits = the number of times the household visited the retailer 
+    AvgProdCount = the average number of products purchased per transaction
+    AvgDiscount = the average discount per transaction from coupon usage
+    AvgSalesValue = the average sales value per transaction
+    MorningPct = the percentage of visits in the morning (8am - 1:59pm)
+    AfternoonPct = the percentage of visits in the afternoon (2pm - 7:59pm)
+
+Note that some visits can occur outside of morning and afternoon hours.  That is, visits from 8pm - 7:59am are possible.
+
+This dataset was derived from source files provided by dunnhumby, a customer science company based in the United Kingdom.
+
+### Problem 1 - Reading in the data
+(2 points possibles)
+
+Read the dataset Households.csv into R.
+
+How many households have logged transactions at the retailer only in the morning?
+```{r}
+setwd("~/MOOC/MIT The Analytics Edge")
+Households<-read.csv("Households.csv")
+morning<-Households[which(Households$MorningPct==100),]#4 obs
+aft<-Households[which(Households$AfternoonPct==100),]#13 obs
+```
+
+### Problem 2 - Descriptive statistics
+(3 points possibles)
+
+Of the households that spend more than $150 per transaction on average, what is the minimum average discount per transaction?
+
+```{r}
+plus150<-Households[which(Households$AvgSalesValue>150),]
+min(plus150$AvgDiscount)#15.64607
+```
+
+Of the households who have an average discount per transaction greater than 25%, what is the minimum average sales value per transaction?
+```{r}
+dsct25<-Households[which(Households$AvgDiscount>25),]
+min(dsct25$AvgSalesValue)#50.1175
+```
+
+In the dataset, what proportion of households visited the retailer at least 300 times?
+
+FALSE  TRUE 
+  147  2353 
+
+```{r}
+table(Households$NumVisits<=300)
+(147)/(2353+147)#0.0588
+
+```
+
+###When clustering data, it is often important to normalize the variables so that they are all on the same scale. If you clustered this dataset without normalizing, which variable would you expect to dominate in the distance calculations?
+
+```{r}
+summary(Households)#NumVisits 
+```
+
+### Problem 4 - Normalizing the Data
+(2 points possibles)
+
+Normalize all of the variables in the HouseHolds dataset by entering the following commands in your R console: (Note that these commands assume that your dataset is called "Households", and create the normalized dataset "HouseholdsNorm". You can change the names to anything you want by editing the commands.)
+
+library(caret)
+
+preproc = preProcess(Households)
+
+HouseholdsNorm = predict(preproc, Households)
+
+(Remember that for each variable, the normalization process subtracts the mean and divides by the standard deviation. We learned how to do this in Unit 6.) In your normalized dataset, all of the variables should have mean 0 and standard deviation 1.
+
+What is the maximum value of NumVisits in the normalized dataset?
+
+```{r}
+library(caret)
+preproc <- preProcess(Households)
+HouseholdsNorm <- predict(preproc, Households)
+summary(HouseholdsNorm)#10.2828
+```
+
+Run the following code to create a dendrogram of your data:
+
+set.seed(200)
+distances <- dist(HouseholdsNorm, method = "euclidean")
+ClusterShoppers <- hclust(distances, method = "ward.D")
+plot(ClusterShoppers, labels = FALSE)
+
+```{r}
+set.seed(200)
+distances <- dist(HouseholdsNorm, method = "euclidean")
+ClusterShoppers <- hclust(distances, method = "ward.D")
+plot(ClusterShoppers, labels = FALSE)
+```
+
+### Problem 5 - Interpreting the Dendrogram
+(2 points possibles)
+
+Based on the dendrogram, how many clusters do you think would be appropriate for this problem? Select all that apply.#2,3,5
+
+Four clusters and six clusters have very little "wiggle room", which means that the additional clusters are not very distinct from existing clusters. That is, when moving from 3 clusters to 4 clusters, the additional cluster is very similar to an existing one (as well as when moving from 5 clusters to 6 clusters). 
+
+### Problem 6 - K-means Clustering
+(2 points possibles)
+
+Run the k-means clustering algorithm on your normalized dataset, selecting 10 clusters. Right before using the kmeans function, type "set.seed(200)" in your R console.
+
+How many observations are in the smallest cluster?
+
+```{r}
+set.seed(200)
+k=10
+km<-kmeans(HouseholdsNorm,centers=k)
+table(km$cluster)
+```
+
+
+### Problem 7 - Understanding the Clusters
+(2 points possibles)
+
+Now, use the cluster assignments from k-means clustering together with the cluster centroids to answer the next few questions.
+
+Which cluster best fits the description "morning shoppers stopping in to make a quick purchase"?
+
+```{r}
+km$centers#Cluster 4 
+```
+     NumVisits AvgProdCount AvgDiscount AvgSalesValue  MorningPct AfternoonPct
+1  -0.24811488   1.47685425   1.2995075     1.4630282 -0.34840552  0.658274557
+2  -0.48316783   3.73740748   3.4739658     3.5747198  0.19984565 -0.127626782
+3  -0.23416257   0.29953633   0.2910342     0.3028503 -0.18244421 -0.016514760
+4  -0.17987013  -0.54192010  -0.4572379    -0.5481618  2.49106094 -1.811251943
+5  -0.24562303  -0.73554976  -0.6988240    -0.7400683 -0.54700392  0.225297175
+6   1.48010544  -0.36385774  -0.3526725    -0.3240381  0.06527668  0.008440554
+7  -0.09256621   0.86666142   0.9044825     0.9880042  1.44404053 -0.979661193
+8  -0.26199562  -0.04997603  -0.1057321    -0.1203396 -0.89830632  1.419272373
+9   4.46367311  -0.85145063  -0.7674102    -0.8051772 -0.23899301 -0.170491325
+10 -0.34463938  -0.63794295  -0.5443075    -0.6261987  0.50474863 -0.786442091
+
+### Problem 8 - Understanding the Clusters
+(2 points possibles)
+
+Which cluster best fits the description "shoppers with high average product count and high average value per visit"?  #Cluster 2 
+
+### Problem 9 - Understanding the Clusters
+(2 points possibles)
+
+Which cluster best fits the description "frequent shoppers with low value per visit"?  #Cluster 9 
+
+### Problem 10 - Random Behavior
+(4 points possibles)
+
+If we ran hierarchical clustering a second time without making any additional calls to set.seed, we would expect:
+
+Identical results to the first hierarchical clustering 
+
+If we ran k-means clustering a second time without making any additional calls to set.seed, we would expect:
+
+Different results from the first k-means clustering 
+
+If we ran k-means clustering a second time, again running the command set.seed(200) right before doing the clustering, we would expect:
+
+Identical results to the first k-means clustering 
+
+If we ran k-means clustering a second time, running the command set.seed(100) right before doing the clustering, we would expect:
+
+Different results from the first k-means clustering 
+
+```{r}
+set.seed(100)
+k=10
+km2<-kmeans(HouseholdsNorm,centers=k)
+table(km2$cluster)
+km2$centers
+```
+
+
+### Problem 11 - The Number of Clusters
+(1 point possible)
+
+Suppose the marketing department at the retail store decided that the 10 clusters were too specific, and they wanted more general clusters to describe the consumer base. Would they want to increase or decrease the number of clusters?
+
+Decrease the number of clusters 
+
+###Problem 12 - Increasing the Number of Clusters
+(2 points possibles)
+
+Run the k-means clustering algorithm again, this time selecting 5 clusters. Right before the "kmeans" function, set the random seed to 5000.
+
+```{r}
+set.seed(5000)
+k=5
+km2<-kmeans(HouseholdsNorm,centers=k)
+table(km2$cluster)
+km2$centers
+```
+
+How many observations are in the smallest cluster?#172
+
+How many observations are in the largest cluster?#994
+
+> table(km2$cluster)
+
+  1   2   3   4   5 
+182 994 428 172 724 
+> km2$centers
+   NumVisits AvgProdCount AvgDiscount AvgSalesValue  MorningPct AfternoonPct
+1 -0.3975444    2.3739961   2.2384982     2.3338536  0.16109552   0.12087026
+2 -0.1929547   -0.6222132  -0.5873469    -0.6266840 -0.42143300   0.15380940
+3 -0.1685650   -0.2928739  -0.1997784    -0.2447794  1.51019022  -1.16030634
+4  2.6945739   -0.5382844  -0.4989133    -0.4882168 -0.07869021  -0.02543026
+5 -0.1756503    0.5584910   0.4802961     0.5343942 -0.33596917   0.45041462
+
+
+### Problem 13 - Describing the Clusters
+(1 point possible)
+
+Using the cluster assignments from k-means clustering with 5 clusters, which cluster best fits the description "frequent shoppers with low value per visit"?#Cluster 4 
+
+### Problem 14 - Understanding Centroids
+(1 point possible)
+
+Why do we typically use cluster centroids to describe the clusters?
+
+ The cluster centroid captures the average behavior in the cluster, and can be used to summarize the general pattern in the cluster. 
+
+###Problem 15 - Using a Visualization
+(1 point possible)
+
+Which of the following visualizations could be used to observe the distribution of NumVisits, broken down by cluster? Select all that apply.
+
+A box plot of NumVisits shows the distribution of the number of visits of the households, and we want to subdivide by cluster. Alternatively, ggplot with y as the cluster and x as the number of visits plots the data, but only geom_point is appropriate to show the distribution of the data. 
+
+####-------------------------------------------------------------------------------------------
+
+#ENERGY
+
+The use of coal in the United States peaked in 2005, and since then has decreased by 25%, being replaced by renewable energy sources and more efficient use (Lovins, 2014). As the United States pursues a portfolio of more diverse, sustainable and secure energy sources, there are many questions to consider. What are effective factors in incentivizing states to adopt more environmentally friendly energy generation methods? How do these factors vary by state? How can we direct resources to different places in the country and ensure that they effectively drive renewable energy sources adoption? To derive insights and answer these questions, we take a combination of generation, usage, and greenhouse emission data by state and combine it with macro-economic and political information.
+
+For this problem, we gathered data from various sources to include the following information for each state within the U.S. for the years spanning year 2000 to year 2013. The aggregated dataset energy.csv results in a total of 27 variables and 699 observations. Each observation contains one record per state per year. Here's a detailed description of the variables:
+
+- GenTotal: Annual generation of energy using all types of energy sources (coal, nuclear, hydroelectric, solar, etc.) normalized by the state population at a given year.
+
+- GenTotalRenewable: Annual generation of energy using all renewable energy sources normalized by the state population at a given year.
+
+- GenHydro, GenSolar: Annual generation of energy using each type of energy source as a percent of the total energy generation.
+
+- GenTotalRenewableBinary, GenSolarBinary: 1 if generation from solar or other renewable energy sources increased between a year n and a year n+1. 0 if it did not increase.
+
+- AllSourcesCO2, AllSourcesSO2 and AllSourcesNOx: Annual emissions per state in metric tons, normalized by the respective state population at a given year and caused by all energy generation sources.
+
+- EPriceResidential, EPriceCommercial, EPriceIndustrial, EPriceTransportation, EPriceTotal: Average electricity price per state, per sector (residential, industrial, commercial, etc.)
+
+- ESalesResidential, ESalesCommercial, ESalesIndustrial, ESalesTransportation, ESalesTotal: Annual normalized sales of electricity per state, per sector.
+
+- CumlRegulatory, CumlFinancial: Number of energy-related financial incentives and regulations created by a state per year.
+
+- Demographic data such as annual wages per capita and presidential results (0 if a state voted republican, 1 is democrat).
+
+### Problem 1 - Total Renewable Energy Generation
+(2 points possibles)
+
+Load energy.csv into a data frame called energy.
+
+Renewable energy sources are considered to include geothermal, hydroelectric, biomass, solar and wind.
+
+Which state in the United States seems to have the highest total generation of energy from renewable sources (use the variable GenTotalRenewable)?
+
+Which year did the above state produce the highest energy generation from renewable resources?
+
+```{r}
+setwd("~/MOOC/MIT The Analytics Edge")
+energy<-read.csv("energy.csv")
+energy$STATE[which.max(energy$GenTotalRenewable)]#ID
+energy$YEAR[energy$GenTotalRenewable==max(energy$GenTotalRenewable[which(energy$STATE=='ID')])]
+```
+

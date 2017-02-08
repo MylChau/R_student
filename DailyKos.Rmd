@@ -1,0 +1,227 @@
+---
+title: "Week6_Ass1_DailyKos"
+output: html_document
+---
+#document clustering with daily kos
+
+Document clustering, or text clustering, is a very popular application of clustering algorithms. A web search engine, like Google, often returns thousands of results for a simple query. For example, if you type the search term "jaguar" into Google, around 200 million results are returned. This makes it very difficult to browse or find relevant information, especially if the search term has multiple meanings. If we search for "jaguar", we might be looking for information about the animal, the car, or the Jacksonville Jaguars football team. 
+
+Clustering methods can be used to automatically group search results into categories, making it easier to find relavent results. This method is used in the search engines PolyMeta and Helioid, as well as on FirstGov.gov, the official Web portal for the U.S. government. The two most common algorithms used for document clustering are Hierarchical and k-means. 
+
+In this problem, we'll be clustering articles published on Daily Kos, an American political blog that publishes news and opinion articles written from a progressive point of view. Daily Kos was founded by Markos Moulitsas in 2002, and as of September 2014, the site had an average weekday traffic of hundreds of thousands of visits. 
+
+The file dailykos.csv contains data on 3,430 news articles or blogs that have been posted on Daily Kos. These articles were posted in 2004, leading up to the United States Presidential Election. The leading candidates were incumbent President George W. Bush (republican) and John Kerry (democratic). Foreign policy was a dominant topic of the election, specifically, the 2003 invasion of Iraq. 
+
+Each of the variables in the dataset is a word that has appeared in at least 50 different articles (1,545 words in total). The set of  words has been trimmed according to some of the techniques covered in the previous week on text analytics (punctuation has been removed, and stop words have been removed). For each document, the variable values are the number of times that word appeared in the document. 
+
+###Problem 1.1 - Hierarchical Clustering
+(1 point possible)
+
+Let's start by building a hierarchical clustering model. First, read the data set into R. Then, compute the distances (using method="euclidean"), and use hclust to build the model (using method="ward.D"). You should cluster on all of the variables.
+
+Running the dist function will probably take you a while. Why? Select all that apply.
+
+The distance computation can take a long time if you have a lot of observations and/or if there are a lot of variables. As we saw in recitation, it might not even work if you have too many of either!
+
+```{r}
+dailykos<-read.csv("dailykos.csv")
+#dailykosMatrix<-as.matrix(dailykos)
+#dailykosVector<-as.vector(dailykosMatrix)
+distance<-dist(dailykos,method="euclidean")
+dailykosClust<-hclust(distance,method="ward.D")
+```
+
+###Problem 1.2 - Hierarchical Clustering
+(1 point possible)
+
+Plot the dendrogram of your hierarchical clustering model. Just looking at the dendrogram, which of the following seem like good choices for the number of clusters? Select all that apply. 
+
+```{r}
+plot(dailykosClust)
+```
+
+he choices 2 and 3 are good cluster choices according to the dendrogram, because there is a lot of space between the horizontal lines in the dendrogram in those cut off spots (draw a horizontal line across the dendrogram where it crosses 2 or 3 vertical lines). The choices of 5 and 6 do not seem good according to the dendrogram because there is very little space. 
+
+###Problem 1.3 - Hierarchical Clustering
+(1 point possible)
+
+In this problem, we are trying to cluster news articles or blog posts into groups. This can be used to show readers categories to choose from when trying to decide what to read. Just thinking about this application, what are good choices for the number of clusters? Select all that apply.
+
+Thinking about the application, it is probably better to show the reader more categories than 2 or 3. These categories would probably be too broad to be useful. Seven or eight categories seems more reasonable.
+
+###Problem 1.4 - Hierarchical Clustering
+(3 points possibles)
+
+Let's pick 7 clusters. This number is reasonable according to the dendrogram, and also seems reasonable for the application. Use the cutree function to split your data into 7 clusters.
+
+Now, we don't really want to run tapply on every single variable when we have over 1,000 different variables. Let's instead use the subset function to subset our data by cluster. Create 7 new datasets, each containing the observations from one of the clusters.
+
+How many observations are in cluster 3?
+
+```{r}
+Clusters<-cutree(dailykosClust,k=7)
+cluster1<-subset(dailykos,Clusters==1)
+cluster2<-subset(dailykos,Clusters==2)
+cluster3<-subset(dailykos,Clusters==3)
+cluster4<-subset(dailykos,Clusters==4)
+cluster5<-subset(dailykos,Clusters==5)
+cluster6<-subset(dailykos,Clusters==6)
+cluster7<-subset(dailykos,Clusters==7)
+nrow(cluster1)
+nrow(cluster2)
+nrow(cluster3)
+nrow(cluster4)
+nrow(cluster5)
+nrow(cluster6)
+nrow(cluster7)
+```
+
+###Problem 1.5 - Hierarchical Clustering
+(1 point possible)
+
+Instead of looking at the average value in each variable individually, we'll just look at the top 6 words in each cluster. To do this for cluster 1, type the following in your R console (where "HierCluster1" should be replaced with the name of your first cluster subset):
+
+tail(sort(colMeans(HierCluster1)))
+
+This computes the mean frequency values of each of the words in cluster 1, and then outputs the 6 words that occur the most frequently. The colMeans function computes the column (word) means, the sort function orders the words in increasing order of the mean values, and the tail function outputs the last 6 words listed, which are the ones with the largest column means.
+
+What is the most frequent word in this cluster, in terms of average value? Enter the word exactly how you see it in the output:
+
+```{r}
+tail(sort(colMeans(cluster1)))
+```
+
+###Problem 1.6 - Hierarchical Clustering
+(3 points possibles)
+
+Now repeat the command given in the previous problem for each of the other clusters, and answer the following questions.
+
+Which words best describe cluster 2?
+
+```{r}
+tail(sort(colMeans(cluster2)))
+```
+
+Which cluster could best be described as the cluster related to the Iraq war?
+
+```{r}
+tail(sort(colMeans(cluster3)))
+tail(sort(colMeans(cluster4)))
+tail(sort(colMeans(cluster5)))
+tail(sort(colMeans(cluster6)))
+tail(sort(colMeans(cluster7)))
+```
+
+In 2004, one of the candidates for the Democratic nomination for the President of the United States was Howard Dean, John Kerry was the candidate who won the democratic nomination, and John Edwards with the running mate of John Kerry (the Vice President nominee). Given this information, which cluster best corresponds to the democratic party?
+
+###Problem 2.1 - K-Means Clustering
+(3 points possibles)
+
+Now, run k-means clustering, setting the seed to 1000 right before you run the kmeans function. Again, pick the number of clusters equal to 7. You don't need to add the iters.max argument.
+
+Subset your data into the 7 clusters (7 new datasets) by using the "cluster" variable of your kmeans output.
+
+How many observations are in Cluster 3?
+
+```{r}
+set.seed(1000)
+k=7
+KMC<-kmeans(dailykos,centers=k)
+kClusters<-KMC$cluster
+kcluster1<-subset(dailykos,kClusters==1)
+kcluster2<-subset(dailykos,kClusters==2)
+kcluster3<-subset(dailykos,kClusters==3)
+kcluster4<-subset(dailykos,kClusters==4)
+kcluster5<-subset(dailykos,kClusters==5)
+kcluster6<-subset(dailykos,kClusters==6)
+kcluster7<-subset(dailykos,kClusters==7)
+nrow(kcluster1)
+nrow(kcluster2)
+nrow(kcluster3)
+nrow(kcluster4)
+nrow(kcluster5)
+nrow(kcluster6)
+nrow(kcluster7)
+```
+
+###Problem 2.2 - K-Means Clustering
+(2 points possibles)
+
+Now, output the six most frequent words in each cluster, like we did in the previous problem, for each of the k-means clusters.
+
+Which k-means cluster best corresponds to the Iraq War?
+
+```{r}
+tail(sort(colMeans(kcluster1)))
+tail(sort(colMeans(kcluster2)))
+tail(sort(colMeans(kcluster3)))
+tail(sort(colMeans(kcluster4)))
+tail(sort(colMeans(kcluster5)))
+tail(sort(colMeans(kcluster6)))
+tail(sort(colMeans(kcluster7)))
+```
+
+###Problem 2.3 - K-Means Clustering
+(1 point possible)
+
+For the rest of this problem, we'll ask you to compare how observations were assigned to clusters in the two different methods. Use the table function to compare the cluster assignment of hierarchical clustering to the cluster assignment of k-means clustering.
+
+Which Hierarchical Cluster best corresponds to K-Means Cluster 2? Cluster 7
+
+```{r}
+table(Clusters, kClusters)
+```
+
+       kClusters
+Clusters    1    2    3    4    5    6    7
+       1    3   11   64 1045   32    0  111
+       2    0    0    0    0    0  320    1
+       3   85   10   42   79  126    8   24
+       4   10    5    0    0    1    0  123
+       5   48    0  171  145    3    1   39
+       6    0    2    0  712    0    0    0
+       7    0  116    0   82    1    0   10
+
+> tail(sort(colMeans(cluster1)))
+     state republican       poll   democrat      kerry       bush 
+ 0.7575039  0.7590837  0.9036335  0.9194313  1.0624013  1.7053712 
+> tail(sort(colMeans(cluster2)))
+     bush  democrat challenge      vote      poll  november 
+ 2.847352  2.850467  4.096573  4.398754  4.847352 10.339564 
+> tail(sort(colMeans(cluster3)))
+     elect    parties      state republican   democrat       bush 
+  1.647059   1.665775   2.320856   2.524064   3.823529   4.406417 
+> tail(sort(colMeans(cluster4)))
+campaign    voter presided     poll     bush    kerry 
+1.431655 1.539568 1.625899 3.589928 7.834532 8.438849 
+> tail(sort(colMeans(cluster5)))
+      american       presided administration            war           iraq           bush 
+      1.090909       1.120393       1.230958       1.776413       2.427518       3.941032 
+> tail(sort(colMeans(cluster6)))
+     race      bush     kerry     elect  democrat      poll 
+0.4579832 0.4887955 0.5168067 0.5350140 0.5644258 0.5812325 
+> tail(sort(colMeans(cluster7)))
+democrat    clark   edward     poll    kerry     dean 
+2.148325 2.497608 2.607656 2.765550 3.952153 5.803828 
+
+> tail(sort(colMeans(kcluster1)))
+         state           iraq          kerry administration       presided           bush 
+      1.609589       1.616438       1.636986       2.664384       2.767123      11.431507 
+> tail(sort(colMeans(kcluster2)))
+primaries  democrat    edward     clark     kerry      dean 
+ 2.319444  2.694444  2.798611  3.090278  4.979167  8.277778 
+> tail(sort(colMeans(kcluster3)))
+administration          iraqi       american           bush            war           iraq 
+      1.389892       1.610108       1.685921       2.610108       3.025271       4.093863 
+> tail(sort(colMeans(kcluster4)))
+     elect republican      kerry       poll   democrat       bush 
+ 0.6010664  0.6175473  0.6495395  0.7474552  0.7891420  1.1473582 
+> tail(sort(colMeans(kcluster5)))
+      race     senate      state    parties republican   democrat 
+  2.484663   2.650307   3.521472   3.619632   4.638037   6.993865 
+> tail(sort(colMeans(kcluster6)))
+ democrat      bush challenge      vote      poll  november 
+ 2.899696  2.960486  4.121581  4.446809  4.872340 10.370821 
+> tail(sort(colMeans(kcluster7)))
+presided    voter campaign     poll     bush    kerry 
+1.324675 1.334416 1.383117 2.788961 5.970779 6.480519 
