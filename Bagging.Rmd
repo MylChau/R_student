@@ -1,0 +1,191 @@
+---
+title: "Bagging"
+output: html_document
+---
+
+Prepare X (just to help)
+```{r}
+Math=c(6,8,6,14.5,14,11,5.5,13,9)
+Phys=c(6,8,7,14.5,14,10,7,12.5,9.5)
+French=c(5,8,11,15.5,12,5.5,14,8.5,12.5)
+English=c(5.5,8,9.5,15,12.5,7,11.5,9.5,12)
+pass=c(1,0,0,0,1,0,1,1,1)
+
+X=matrix(c(Math,Phys,French,English,pass),ncol=5,nrow=9)
+colnames(X)=c('Maths','Phys','French','English','pass')
+rownames(X)=c('Jean','Alain','Annie','Monique','Didier','André','Pierre','Brigitte','Evelyne')
+X=as.data.frame(X[,1:4])
+Y=as.data.frame(X[,5])
+
+```
+
+Create bag
+```{r}
+bag<-function(X,Y,K,Xp){
+
+  
+#Construction of K bootsrap samples
+  n=nrow(X)
+  sP=data.frame(rep(0,nrow(Xp)))#create an empty data frame to obtain aggregate results - initialize with 0
+  
+  for(i in 1:K){
+    u=1:n
+    v=sample(u,n,replace=TRUE)
+    Xb=X[v,]
+    Yb=Y[v]
+  }
+#Xb and Yb are the new data
+library(rpart)
+T=rpart(Yb~.,data=Xb,control=rpart.control(minsplit=2,cp=10^(-15)))#create CART
+
+#cross_validation
+#find treshold=minimum cross validation error(xerror)+1 associated ssd error(xstd)
+Tcp=printcp(T)#printcp(T)=T$cptable
+cverror=Tcp[,4]#retrieve xerror
+mcv=min(cverror)#retrieve min xerror
+loc=which(cverror==mcv) #find the row of min xerror
+tres=min(Tcp[loc,4]+Tcp[loc,5]) #compute treshold (min(exerror)+associated xstd)
+xcv=1*(cverror<=tres)
+xb=min(which(xcv==1))
+cpb=Tcp[xb,1]
+Tf=prune(T,cp=cpb)
+
+
+#make distinction between classification and regression
+  if(is.factor(Y)){#classification
+    P=predict(Tf,newdata=Xp,type='class')
+    sP=cbind(sP,P)#I add one column to my result data.frame 
+
+    }
+  else{#regression
+    P=predict(Tf,newdata=Xp)
+    sP=cbind(sP,P)#I add one column to my result data.frame
+
+  
+}
+  
+P=sP[,-1]#we delete the column created with zero at the beginning for the initialization (no use and will false results)
+
+#aggregation
+
+if (is.factor(Y)){#classification
+  lev=levels(Y)
+  nlev=length(lev)
+  predicted=c()
+  for (i in 1:nrows(Xp)){
+    a=c()
+    for(j in 1:nlev){
+      a=c(a,length(which(P[i,]==lev[j])))
+    }
+   b=which(a==max(a)) 
+   predicted=c(predicted,lev[b])
+  }
+}
+else{#regression
+  predicted=apply(P,1,mean)#we have added one column for each K, so we have 1/k(sum(row)). We have one prediction for each individuals in Xp
+}
+
+
+bag=predicted
+}
+
+```
+
+#test
+```{r}
+data(mtcars)
+Y=mtcars[,1]
+X=mtcars[,-1]
+K=2
+A=bag(X,Y,2,X[1:2,])
+```
+
+
+#make distinction between classification and regression
+  if(is.factor(Y)){#classification
+    P=predict(Tf,newdata=Xp,type='class')
+    result=rep(0,ncol(P))
+    for(i in 1:ncol(P)){
+    result[i]=sum(P[,i])/nrow(P)
+    }
+  }
+  else{#regression
+    P=predict(Tf,newdata=Xp)
+    for(i in 1:ncol(P)){
+    result=rep(0,ncol(P))
+    result[i]=max(table(P[,i]))
+```{r}
+library(rpart)
+data(iris)
+X=iris[,-5]
+Y=iris[,5]
+T=rpart(Y~.,data=X,control=rpart.control(minsplit=2,cp=10^(-15)))
+Tcp=printcp(T)#printcp(T)=T$cptable
+cverror=Tcp[,4]
+mcv=min(cverror)
+loc=which(cverror==mcv)#warning: if we have some equal values, we can find several index for the min!
+tres=min(Tcp[loc,4]+Tcp[loc,5])# in case we have several mcv loc, we take the minimum sum
+xcv=1*(cverror<=tres)#we see where we are bigger or less than the treshold (multiply by 1 to have a 0/1 anwser, and not TRUE/FALSE)
+xb=min(which(xcv==1))#we take the first one "true", like that we can retrieve the row where the xeroor is, for the first time, >treshold
+
+cpb=Tcp[xb,1]#cp value of the row xb
+Tf=prune(T,cp=cpb)#we got the good tree!
+Xp=iris[1:3,]
+P=predict(Tf,newdata=Xp)
+result=rep(0,ncol(P))
+for(i in 1:ncol(P)){
+  result[i]=sum(P[,i])/nrow(P)
+}
+
+```
+> T$cptable=TCP=printcp(T)
+       CP nsplit rel error xerror       xstd
+1 5.0e-01      0      1.00   1.21 0.04836666
+2 4.4e-01      1      0.50   0.73 0.06121547
+3 2.0e-02      2      0.06   0.10 0.03055050
+4 1.0e-02      3      0.04   0.09 0.02908608
+5 5.0e-03      6      0.01   0.11 0.03192700
+6 1.0e-15      8      0.00   0.12 0.03322650
+
+
+> cverror
+   1    2    3    4    5    6 
+1.21 0.73 0.10 0.09 0.11 0.12 
+
+> mcv
+[1] 0.09
+
+> loc
+4 
+
+> treshold
+[1] 0.1190861
+
+> xcv
+1 2 3 4 5 6 
+0 0 1 1 1 1 
+
+> xb
+[1] 3
+
+> cpb
+[1] 0.02
+
+> Tf
+n= 150 
+
+node), split, n, loss, yval, (yprob)
+      * denotes terminal node
+
+1) root 150 100 setosa (0.33333333 0.33333333 0.33333333)  
+  2) Petal.Length< 2.45 50   0 setosa (1.00000000 0.00000000 0.00000000) *
+  3) Petal.Length>=2.45 100  50 versicolor (0.00000000 0.50000000 0.50000000)  
+    6) Petal.Width< 1.75 54   5 versicolor (0.00000000 0.90740741 0.09259259) *
+    7) Petal.Width>=1.75 46   1 virginica (0.00000000 0.02173913 0.97826087) *
+    
+> P
+  setosa versicolor virginica
+1      1          0         0
+2      1          0         0
+3      1          0         0
+
